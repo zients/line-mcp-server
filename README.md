@@ -239,6 +239,7 @@ npm run test:coverage # run with coverage report
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `CHANNEL_ACCESS_TOKEN` | Yes | LINE Messaging API channel access token |
+| `DEFAULT_UID` | No | Default recipient **User ID** (must start with `U`). When set, the single-target messaging tools (`push_text_message`, `push_image_message`, `push_sticker_message`, `push_flex_message`, `push_video_message`, `push_audio_message`, `push_location_message`, `show_loading_indicator`) may omit `to`/`chatId` and send to this user by default. An explicit `to` (User/Group/Room) always overrides it. If set to a value that does not start with `U`, the server exits on startup. |
 
 ## License
 
