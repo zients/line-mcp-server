@@ -87,4 +87,4 @@ Before requesting review, confirm:
 
 ## Security Reports
 
-Do not open public issues for vulnerabilities involving token leakage, account access, webhook payload exposure, or unsafe LINE API behavior. Report security-sensitive findings privately to the maintainer first.
+Do not open public issues for vulnerabilities involving token leakage, account access, webhook payload exposure, or unsafe LINE API behavior. Follow the private reporting guidance in `SECURITY.md`.
