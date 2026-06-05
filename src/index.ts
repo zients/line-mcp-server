@@ -29,7 +29,7 @@ const defaultUid = defaultUidResult.value;
 
 const server = new McpServer({
   name: '@zients/line-mcp-server',
-  version: '1.0.0',
+  version: '1.0.1',
 });
 
 const lineService = new LineMessagingClient(channelAccessToken);
