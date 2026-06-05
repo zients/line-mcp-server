@@ -5,7 +5,7 @@
 [![Node.js](https://img.shields.io/node/v/%40zients%2Fline-mcp-server.svg)](https://nodejs.org)
 [![License: MIT](https://img.shields.io/npm/l/%40zients%2Fline-mcp-server.svg)](./LICENSE)
 
-MCP Server for LINE Messaging API — let AI agents send messages, manage groups, configure rich menus, and query analytics on LINE. Works with Claude Code, OpenClaw, and any MCP-compatible client.
+MCP Server for LINE Messaging API — let AI agents send messages, manage groups, configure rich menus, and query analytics on LINE. Works with Codex CLI, Claude Code, OpenClaw, and any MCP-compatible client.
 
 > **Disclaimer:** This project is not affiliated with, endorsed by, or sponsored by LY Corporation or LINE.
 
@@ -110,11 +110,25 @@ To use group/room tools or send messages to groups and rooms:
 
 No installation needed — just configure your MCP client.
 
+`DEFAULT_UID` is optional. Set it when you want single-target messaging tools to use a default LINE User ID, so calls like `push_text_message` can omit `to`.
+
+### Codex CLI
+
+```bash
+codex mcp add @zients/line-mcp-server \
+  --env CHANNEL_ACCESS_TOKEN=<your-token> \
+  --env DEFAULT_UID=U... \
+  -- npx -y @zients/line-mcp-server
+```
+
+Start a new Codex session after adding the MCP server so Codex loads the new tools.
+
 ### Claude Code
 
 ```bash
 claude mcp add @zients/line-mcp-server -t stdio \
   -e CHANNEL_ACCESS_TOKEN=<your-token> \
+  -e DEFAULT_UID=U... \
   -- npx -y @zients/line-mcp-server
 ```
 
@@ -125,6 +139,7 @@ mcporter config add @zients/line-mcp-server \
   --command npx \
   --arg -y --arg @zients/line-mcp-server \
   --env CHANNEL_ACCESS_TOKEN=<your-token> \
+  --env DEFAULT_UID=U... \
   --description "LINE Messaging API tools"
 ```
 
@@ -139,7 +154,8 @@ Add the following to your MCP client configuration:
       "command": "npx",
       "args": ["-y", "@zients/line-mcp-server"],
       "env": {
-        "CHANNEL_ACCESS_TOKEN": "<your-token>"
+        "CHANNEL_ACCESS_TOKEN": "<your-token>",
+        "DEFAULT_UID": "U..."
       }
     }
   }
@@ -155,11 +171,21 @@ npm install
 npm run build   # compiles TypeScript to dist/
 ```
 
+### Codex CLI
+
+```bash
+codex mcp add @zients/line-mcp-server \
+  --env CHANNEL_ACCESS_TOKEN=<your-token> \
+  --env DEFAULT_UID=U... \
+  -- node /path/to/line-mcp-server/dist/index.js
+```
+
 ### Claude Code
 
 ```bash
 claude mcp add @zients/line-mcp-server -t stdio \
   -e CHANNEL_ACCESS_TOKEN=<your-token> \
+  -e DEFAULT_UID=U... \
   -- node /path/to/line-mcp-server/dist/index.js
 ```
 
@@ -170,6 +196,7 @@ mcporter config add @zients/line-mcp-server \
   --command node \
   --arg /path/to/line-mcp-server/dist/index.js \
   --env CHANNEL_ACCESS_TOKEN=<your-token> \
+  --env DEFAULT_UID=U... \
   --description "LINE Messaging API tools"
 ```
 
@@ -178,6 +205,7 @@ mcporter config add @zients/line-mcp-server \
 ```bash
 mcporter list @zients/line-mcp-server --schema
 mcporter call @zients/line-mcp-server.push_text_message to=U... text="Hello"
+mcporter call @zients/line-mcp-server.push_text_message text="Hello from DEFAULT_UID"
 mcporter call @zients/line-mcp-server.get_user_profile userId=U...
 mcporter call @zients/line-mcp-server.get_bot_info
 ```
@@ -209,7 +237,8 @@ src/
 │   └── insight.ts                    # 13 insight/analytics tools
 └── utils/
     ├── error.ts                      # Error formatting utility
-    └── flex.ts                       # Flex message JSON validation
+    ├── flex.ts                       # Flex message JSON validation
+    └── target.ts                     # DEFAULT_UID parsing and target fallback
 
 tests/
 ├── helpers/
@@ -225,7 +254,8 @@ tests/
 │   ├── richmenu.test.ts              # Rich menu tool handler tests
 │   └── insight.test.ts               # Insight tool handler tests
 └── utils/
-    └── error.test.ts                 # Error formatting tests
+    ├── error.test.ts                 # Error formatting tests
+    └── target.test.ts                # DEFAULT_UID and target fallback tests
 ```
 
 ## Testing
