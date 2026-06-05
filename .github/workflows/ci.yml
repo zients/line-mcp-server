@@ -2,24 +2,112 @@ name: CI
 
 on:
   push:
-    branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  test:
+  quality:
+    name: Build and test on Node ${{ matrix.node-version }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [22.x, 24.x]
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: ${{ matrix.node-version }}
           cache: npm
+          cache-dependency-path: package-lock.json
 
-      - run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-      - run: npm run build
+      - name: Build TypeScript
+        run: npm run build
 
-      - run: npm run test:coverage
+      - name: Run tests with coverage
+        run: npm run test:coverage
+
+  security:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Fail on critical production advisories
+        run: npm audit --omit=dev --audit-level=critical
+
+      - name: Report high and moderate advisories
+        continue-on-error: true
+        run: npm audit --audit-level=moderate
+
+  package:
+    name: Package smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [quality]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build TypeScript
+        run: npm run build
+
+      - name: Create package manifest
+        run: npm pack --dry-run --json > pack.json
+
+      - name: Verify package contents
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+
+          const pack = JSON.parse(fs.readFileSync('pack.json', 'utf8'))[0];
+          const files = new Set(pack.files.map((file) => file.path));
+          const requiredFiles = ['dist/index.js', 'package.json', 'README.md', 'LICENSE'];
+
+          for (const required of requiredFiles) {
+            if (!files.has(required)) {
+              throw new Error(`Missing package file: ${required}`);
+            }
+          }
+          NODE
