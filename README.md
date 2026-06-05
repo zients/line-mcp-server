@@ -1,6 +1,7 @@
 # @zients/line-mcp-server
 
 [![npm version](https://img.shields.io/npm/v/%40zients%2Fline-mcp-server.svg)](https://www.npmjs.com/package/@zients/line-mcp-server)
+[![CI](https://github.com/zients/line-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/zients/line-mcp-server/actions/workflows/ci.yml)
 [![Node.js](https://img.shields.io/node/v/%40zients%2Fline-mcp-server.svg)](https://nodejs.org)
 [![License: MIT](https://img.shields.io/npm/l/%40zients%2Fline-mcp-server.svg)](./LICENSE)
 
