@@ -3,15 +3,21 @@ import * as z from 'zod/v4';
 import type { LineService } from '../services/line.js';
 import { formatLineError } from '../utils/error.js';
 import { parseFlexContainer } from '../utils/flex.js';
+import { resolveTarget } from '../utils/target.js';
 
 const targetId = z
   .string()
   .regex(/^[UCR]/, 'Target ID must start with "U", "C", or "R"')
-  .describe('Target ID — User ID (U…), Group ID (C…), or Room ID (R…)');
+  .optional()
+  .describe(
+    'Target ID — User ID (U…), Group ID (C…), or Room ID (R…). ' +
+      'If omitted, falls back to the DEFAULT_UID environment variable.',
+  );
 
 export function registerMessagingTools(
   server: McpServer,
   lineService: LineService,
+  defaultUid?: string,
 ): void {
   server.registerTool(
     'push_text_message',
@@ -26,10 +32,15 @@ export function registerMessagingTools(
       }),
     },
     async ({ to, text }) => {
+      const resolved = resolveTarget(to, defaultUid);
+      if (!resolved.ok) {
+        return { content: [{ type: 'text', text: resolved.error }], isError: true };
+      }
+      const target = resolved.to;
       try {
-        await lineService.pushTextMessage(to, text);
+        await lineService.pushTextMessage(target, text);
         return {
-          content: [{ type: 'text', text: `Text message sent to ${to}` }],
+          content: [{ type: 'text', text: `Text message sent to ${target}` }],
         };
       } catch (error) {
         return {
@@ -63,15 +74,16 @@ export function registerMessagingTools(
           .describe('Preview image URL (HTTPS, JPEG/PNG, max 1 MB)'),
       }),
     },
-    async ({
-      to,
-      originalContentUrl,
-      previewImageUrl,
-    }) => {
+    async ({ to, originalContentUrl, previewImageUrl }) => {
+      const resolved = resolveTarget(to, defaultUid);
+      if (!resolved.ok) {
+        return { content: [{ type: 'text', text: resolved.error }], isError: true };
+      }
+      const target = resolved.to;
       try {
-        await lineService.pushImageMessage(to, originalContentUrl, previewImageUrl);
+        await lineService.pushImageMessage(target, originalContentUrl, previewImageUrl);
         return {
-          content: [{ type: 'text', text: `Image sent to ${to}` }],
+          content: [{ type: 'text', text: `Image sent to ${target}` }],
         };
       } catch (error) {
         return {
@@ -95,13 +107,18 @@ export function registerMessagingTools(
       }),
     },
     async ({ to, packageId, stickerId }) => {
+      const resolved = resolveTarget(to, defaultUid);
+      if (!resolved.ok) {
+        return { content: [{ type: 'text', text: resolved.error }], isError: true };
+      }
+      const target = resolved.to;
       try {
-        await lineService.pushStickerMessage(to, packageId, stickerId);
+        await lineService.pushStickerMessage(target, packageId, stickerId);
         return {
           content: [
             {
               type: 'text',
-              text: `Sticker (${packageId}/${stickerId}) sent to ${to}`,
+              text: `Sticker (${packageId}/${stickerId}) sent to ${target}`,
             },
           ],
         };
@@ -135,6 +152,12 @@ export function registerMessagingTools(
       }),
     },
     async ({ to, altText, contents }) => {
+      const resolved = resolveTarget(to, defaultUid);
+      if (!resolved.ok) {
+        return { content: [{ type: 'text', text: resolved.error }], isError: true };
+      }
+      const target = resolved.to;
+
       const result = parseFlexContainer(contents);
       if (!result.ok) {
         return {
@@ -144,9 +167,9 @@ export function registerMessagingTools(
       }
 
       try {
-        await lineService.pushFlexMessage(to, altText, result.container);
+        await lineService.pushFlexMessage(target, altText, result.container);
         return {
-          content: [{ type: 'text', text: `Flex message sent to ${to}` }],
+          content: [{ type: 'text', text: `Flex message sent to ${target}` }],
         };
       } catch (error) {
         return {
@@ -183,10 +206,15 @@ export function registerMessagingTools(
       }),
     },
     async ({ to, originalContentUrl, previewImageUrl }) => {
+      const resolved = resolveTarget(to, defaultUid);
+      if (!resolved.ok) {
+        return { content: [{ type: 'text', text: resolved.error }], isError: true };
+      }
+      const target = resolved.to;
       try {
-        await lineService.pushVideoMessage(to, originalContentUrl, previewImageUrl);
+        await lineService.pushVideoMessage(target, originalContentUrl, previewImageUrl);
         return {
-          content: [{ type: 'text', text: `Video sent to ${to}` }],
+          content: [{ type: 'text', text: `Video sent to ${target}` }],
         };
       } catch (error) {
         return {
@@ -219,10 +247,15 @@ export function registerMessagingTools(
       }),
     },
     async ({ to, originalContentUrl, duration }) => {
+      const resolved = resolveTarget(to, defaultUid);
+      if (!resolved.ok) {
+        return { content: [{ type: 'text', text: resolved.error }], isError: true };
+      }
+      const target = resolved.to;
       try {
-        await lineService.pushAudioMessage(to, originalContentUrl, duration);
+        await lineService.pushAudioMessage(target, originalContentUrl, duration);
         return {
-          content: [{ type: 'text', text: `Audio sent to ${to}` }],
+          content: [{ type: 'text', text: `Audio sent to ${target}` }],
         };
       } catch (error) {
         return {
@@ -247,10 +280,15 @@ export function registerMessagingTools(
       }),
     },
     async ({ to, title, address, latitude, longitude }) => {
+      const resolved = resolveTarget(to, defaultUid);
+      if (!resolved.ok) {
+        return { content: [{ type: 'text', text: resolved.error }], isError: true };
+      }
+      const target = resolved.to;
       try {
-        await lineService.pushLocationMessage(to, title, address, latitude, longitude);
+        await lineService.pushLocationMessage(target, title, address, latitude, longitude);
         return {
-          content: [{ type: 'text', text: `Location sent to ${to}` }],
+          content: [{ type: 'text', text: `Location sent to ${target}` }],
         };
       } catch (error) {
         return {
@@ -270,14 +308,26 @@ export function registerMessagingTools(
       description:
         'Display a loading animation in the LINE chat to indicate processing.',
       inputSchema: z.object({
-        chatId: z.string().min(1).describe('User ID to show the loading animation to'),
+        chatId: z
+          .string()
+          .min(1)
+          .optional()
+          .describe(
+            'User ID to show the loading animation to. ' +
+              'If omitted, falls back to the DEFAULT_UID environment variable.',
+          ),
       }),
     },
     async ({ chatId }) => {
+      const resolved = resolveTarget(chatId, defaultUid);
+      if (!resolved.ok) {
+        return { content: [{ type: 'text', text: resolved.error }], isError: true };
+      }
+      const target = resolved.to;
       try {
-        await lineService.showLoadingIndicator(chatId);
+        await lineService.showLoadingIndicator(target);
         return {
-          content: [{ type: 'text', text: `Loading indicator shown for ${chatId}` }],
+          content: [{ type: 'text', text: `Loading indicator shown for ${target}` }],
         };
       } catch (error) {
         return {

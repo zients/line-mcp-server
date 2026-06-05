@@ -5,14 +5,14 @@ import { createMockLineService } from '../helpers/mock-line-service.js';
 
 type ToolHandler = (args: Record<string, unknown>) => Promise<unknown>;
 
-function registerAndCapture(lineService: LineService) {
+function registerAndCapture(lineService: LineService, defaultUid?: string) {
   const handlers = new Map<string, ToolHandler>();
   const mockServer = {
     registerTool: vi.fn((name: string, _config: unknown, handler: ToolHandler) => {
       handlers.set(name, handler);
     }),
   };
-  registerMessagingTools(mockServer as any, lineService);
+  registerMessagingTools(mockServer as any, lineService, defaultUid);
   return { handlers, mockServer };
 }
 
@@ -403,6 +403,89 @@ describe('messaging tools', () => {
         contents: validFlex,
       });
       expect(result.isError).toBe(true);
+    });
+  });
+
+  describe('default UID fallback', () => {
+    const DEFAULT = 'Udefault000000000000000000000000';
+    const validFlex = JSON.stringify({ type: 'bubble', body: { type: 'box' } });
+
+    describe('push_text_message', () => {
+      it('uses DEFAULT_UID when "to" is omitted', async () => {
+        const { handlers: h } = registerAndCapture(lineService, DEFAULT);
+        const result: any = await h.get('push_text_message')!({ text: 'Hi' });
+        expect(lineService.pushTextMessage).toHaveBeenCalledWith(DEFAULT, 'Hi');
+        expect(result.content[0].text).toContain(DEFAULT);
+        expect(result.isError).toBeUndefined();
+      });
+
+      it('explicit "to" overrides the default', async () => {
+        const { handlers: h } = registerAndCapture(lineService, DEFAULT);
+        await h.get('push_text_message')!({ to: 'U999', text: 'Hi' });
+        expect(lineService.pushTextMessage).toHaveBeenCalledWith('U999', 'Hi');
+      });
+
+      it('errors when no "to" and no default, without calling the service', async () => {
+        const { handlers: h } = registerAndCapture(lineService);
+        const result: any = await h.get('push_text_message')!({ text: 'Hi' });
+        expect(result.isError).toBe(true);
+        expect(result.content[0].text).toContain('DEFAULT_UID');
+        expect(lineService.pushTextMessage).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('push_flex_message', () => {
+      it('uses DEFAULT_UID when "to" is omitted', async () => {
+        const { handlers: h } = registerAndCapture(lineService, DEFAULT);
+        const result: any = await h.get('push_flex_message')!({
+          altText: 'hi',
+          contents: validFlex,
+        });
+        expect(lineService.pushFlexMessage).toHaveBeenCalledWith(DEFAULT, 'hi', {
+          type: 'bubble',
+          body: { type: 'box' },
+        });
+        expect(result.isError).toBeUndefined();
+      });
+
+      it('explicit "to" overrides the default', async () => {
+        const { handlers: h } = registerAndCapture(lineService, DEFAULT);
+        await h.get('push_flex_message')!({ to: 'U999', altText: 'hi', contents: validFlex });
+        expect(lineService.pushFlexMessage).toHaveBeenCalledWith('U999', 'hi', expect.anything());
+      });
+
+      it('missing-target error wins over invalid-flex error', async () => {
+        const { handlers: h } = registerAndCapture(lineService);
+        const result: any = await h.get('push_flex_message')!({ contents: 'not json{{{' });
+        expect(result.isError).toBe(true);
+        expect(result.content[0].text).toContain('DEFAULT_UID');
+        expect(result.content[0].text).not.toContain('JSON');
+        expect(lineService.pushFlexMessage).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('show_loading_indicator', () => {
+      it('uses DEFAULT_UID when "chatId" is omitted', async () => {
+        const { handlers: h } = registerAndCapture(lineService, DEFAULT);
+        const result: any = await h.get('show_loading_indicator')!({});
+        expect(lineService.showLoadingIndicator).toHaveBeenCalledWith(DEFAULT);
+        expect(result.content[0].text).toContain(DEFAULT);
+        expect(result.isError).toBeUndefined();
+      });
+
+      it('explicit "chatId" overrides the default', async () => {
+        const { handlers: h } = registerAndCapture(lineService, DEFAULT);
+        await h.get('show_loading_indicator')!({ chatId: 'U999' });
+        expect(lineService.showLoadingIndicator).toHaveBeenCalledWith('U999');
+      });
+
+      it('errors when no "chatId" and no default, without calling the service', async () => {
+        const { handlers: h } = registerAndCapture(lineService);
+        const result: any = await h.get('show_loading_indicator')!({});
+        expect(result.isError).toBe(true);
+        expect(result.content[0].text).toContain('DEFAULT_UID');
+        expect(lineService.showLoadingIndicator).not.toHaveBeenCalled();
+      });
     });
   });
 });

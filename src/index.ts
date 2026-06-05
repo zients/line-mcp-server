@@ -8,6 +8,7 @@ import { registerProfileTools } from './tools/profile.js';
 import { registerGroupTools } from './tools/group.js';
 import { registerRichMenuTools } from './tools/richmenu.js';
 import { registerInsightTools } from './tools/insight.js';
+import { parseDefaultUid } from './utils/target.js';
 
 const channelAccessToken = process.env.CHANNEL_ACCESS_TOKEN;
 
@@ -19,6 +20,13 @@ if (!channelAccessToken) {
   process.exit(1);
 }
 
+const defaultUidResult = parseDefaultUid(process.env.DEFAULT_UID);
+if (!defaultUidResult.ok) {
+  console.error(`Error: ${defaultUidResult.error}`);
+  process.exit(1);
+}
+const defaultUid = defaultUidResult.value;
+
 const server = new McpServer({
   name: '@zients/line-mcp-server',
   version: '1.0.0',
@@ -26,7 +34,7 @@ const server = new McpServer({
 
 const lineService = new LineMessagingClient(channelAccessToken);
 
-registerMessagingTools(server, lineService);
+registerMessagingTools(server, lineService, defaultUid);
 registerProfileTools(server, lineService);
 registerGroupTools(server, lineService);
 registerRichMenuTools(server, lineService);
